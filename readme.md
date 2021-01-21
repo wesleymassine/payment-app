@@ -25,19 +25,44 @@ go version  # go version go1.15.4 linux/amd64
 ```
 ## Package
 I sought to make the most of the native resources of the lineage. I used only the gorilla/mux package to route HTTP requests and URL matching to build web servers with Go (github.com/gorilla/mux) v1.8.0.
-
-## Api Interface
-* 1. Account creation 
+1. Account creation 
     * URL: http://localhost:5000/accounts
     * METHOD: POST 
     * REPONSE: CREATED (201)
     * PAYLOAD: (JSON)
 
-    * GET Transactions
-    * URL: http://localhost:5000/transactions
+    ```Input: Creates the account with available-limit and active-card set.
+    {
+        "account":{
+            "active-card":true,
+            "available-limit":100
+        }
+    }
+    ```
+    ```Output:
+    {
+        "account":{
+            "active-card":true,
+            "available-limit":100
+        },
+    "violations":[]
+    }
+    ```
+    * GET Account
+    * URL: http://localhost:5000/accounts
     * METHOD: GET 
     * REPONSE: CREATED (200)
     * PAYLOAD: (JSON)
+
+    ```Output:
+    { 
+        "account":{
+            "active-card":true,
+            "available-limit":100
+        },
+    "violations":[]
+    }
+    ```
 
 * 2. Transaction authorization 
     * URL: http://localhost:5000/transactions
@@ -45,12 +70,99 @@ I sought to make the most of the native resources of the lineage. I used only th
     * REPONSE: CREATED (201)
     * PAYLOAD: (JSON)
 
+     ```Input: Tries to authorize a transaction for a particular merchant, amount and time given the account's 
+     state and last authorized transactions
+    {
+        "transaction":{
+            "merchant":"Burger King",
+            "amount":20,
+        }
+    }
+    ```
+
+    ```Output: The account's current state + any business logic violations.
+    {
+        "account":{
+            "active-card":true,
+            "available-limit":100
+        },
+        "violations":[]
+    }
+    ```
+        ```
     * GET Transactions
     * URL: http://localhost:5000/transactions
     * METHOD: GET 
     * REPONSE: CREATED (200)
     * PAYLOAD: (JSON)
 
+    ```Output:
+   [
+    {
+        "transaction": {
+            "id": 1,
+            "merchant": "Habbib's 3",
+            "amount": 1,
+            "time": "2021-01-07T22:19:20.72703733Z"
+        }
+    },
+    {
+        "transaction": {
+            "id": 2,
+            "merchant": "Habbib's 3",
+            "amount": 2,
+            "time": "2021-01-07T22:19:35.251681085Z"
+        }
+    },
+    {
+        "transaction": {
+            "id": 3,
+            "merchant": "Habbib's 3",
+            "amount": 3,
+            "time": "2021-01-07T22:19:43.130314856Z"
+        }
+    }
+    ]
+
+* 3. Business rules 
+You should implement the following rules, keeping in mind new rules will appear in the future: 
+
+    ● No transaction should be accepted without a properly initialized account: ```account-not-initialized```
+
+    ● No transaction should be accepted when the card is not active: ```card-not-active``` 
+
+    ● The transaction amount should not exceed available limit: ```insufficient-limit``` 
+
+    ● There should not be more than 3 transactions on a 2 minute interval: ```high-frequency-small-interval```
+
+    ● There should not be more than 1 similar transactions (same amount and merchant) in a 2 minutes interval: ```doubled-transaction``` 
+
+* Examples 
+
+    Given there is an account with active-card: true and available-limit: 100: 
+
+    * input 
+        {"transaction": {"merchant": "Burger King", "amount": 20, "time": "2019-02-13T10:00:00.000Z"}} 
+
+    * output 
+        {"account": {"active-card": true, "available-limit": 80}, "violations": []} 
+
+    * Given there is an account with active-card: true, available-limit: 80 and 3 transaction occurred in the last 2 minutes: 
+    * input 
+    {"transaction": {"merchant": "Habbib's", "amount": 90, "time": "2019-02-13T10:01:00.000Z"}} 
+
+    * output 
+    {"account": {"active-card": true, "available-limit": 80}, "violations": ["insufficient-limit", "high-frequency-small-interval"]} 
+
+## Types of violations expected ##
+```output
+    account-already-initialized
+    account-not-initialized
+    card-not-active
+    insufficient-limit
+    high-frequency-small-interval
+    doubled-transaction
+```
 ### Executing requests with Postman
 
 [![Run in Postman](https://run.pstmn.io/button.svg)](https://god.postman.co/run-collection/bfa3671453b5f86f9692)
